@@ -19,6 +19,7 @@ public class PanelSocio extends JPanel {
         setLayout(new GridBagLayout());
         setBackground(new Color(245, 245, 245));
 
+
         GridBagConstraints gbcPrincipal = new GridBagConstraints();
         gbcPrincipal.gridx = 0;
         gbcPrincipal.anchor = GridBagConstraints.CENTER;
@@ -67,63 +68,65 @@ public class PanelSocio extends JPanel {
         configurarLimitadorTelefono(txtTelefono);
         agregarCampo(card, "C. Electrónico:", txtEmail = new JTextField(), 5, gbc, labelFont, bordeNegro, 350, alturaFija);
 
-        // Tarifa con símbolo €
-        gbc.gridy = 6; gbc.gridx = 0;
-        card.add(new JLabel("Tarifa:", SwingConstants.LEFT), gbc);
 
-        // Panel contenedor para alinear el combo y el euro
-        JPanel pnlTarifaContenedor = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        pnlTarifaContenedor.setOpaque(false);
+        // Tarifa alineada con €
+        gbc.gridy = 6;
+        gbc.gridx = 0;
+        card.add(new JLabel("Tarifa:"), gbc);
+
+        // Creamos un panel con ancho fijo para que no se desplace
+        JPanel pnlTarifaWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlTarifaWrap.setOpaque(false);
+        pnlTarifaWrap.setPreferredSize(new Dimension(150, alturaFija)); // Ancho suficiente para combo + €
 
         String[] precios = {"", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90"};
         comboTarifa = crearComboBlanco(precios, bordeNegro);
-        comboTarifa.setPreferredSize(new Dimension(80, alturaFija));
+        comboTarifa.setPreferredSize(new Dimension(110, alturaFija)); // Mismo ancho que el DNI
 
-        pnlTarifaContenedor.add(comboTarifa);
-
-        JLabel lblEuro = new JLabel("€");
-        lblEuro.setFont(labelFont);
-        pnlTarifaContenedor.add(lblEuro);
+        pnlTarifaWrap.add(comboTarifa);
+        pnlTarifaWrap.add(new JLabel("  €"));
 
         gbc.gridx = 1;
-        card.add(pnlTarifaContenedor, gbc);
+        card.add(pnlTarifaWrap, gbc);
 
 
         // Periodicidad
-        gbc.gridy = 7; gbc.gridx = 0;
+        gbc.gridy = 7;
+        gbc.gridx = 0;
         card.add(new JLabel("Periodicidad:", SwingConstants.LEFT), gbc);
         comboPeriodicidad = crearComboBlanco(new String[]{"", "Mensual", "Trimestral", "Semestral", "Anual"}, bordeNegro);
         comboPeriodicidad.setPreferredSize(new Dimension(120, alturaFija));
-        gbc.gridx = 1; card.add(comboPeriodicidad, gbc);
+        gbc.gridx = 1;
+        card.add(comboPeriodicidad, gbc);
 
-        // Descuento (Ahora desplegable con números)
-        gbc.gridy = 8; gbc.gridx = 0;
-        card.add(new JLabel("Descuento:", SwingConstants.LEFT), gbc);
+        // Descuento alineado con Meses
+        gbc.gridy = 8;
+        gbc.gridx = 0;
+        card.add(new JLabel("Descuento:"), gbc);
 
-        JPanel pnlDescuentoContenedor = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-        pnlDescuentoContenedor.setOpaque(false);
+        JPanel pnlDescWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        pnlDescWrap.setOpaque(false);
+        pnlDescWrap.setPreferredSize(new Dimension(200, alturaFija)); // Más ancho para la palabra "Meses"
 
-        // Creamos el combo con el 0 y más números (puedes añadir los que quieras)
-        String[] opcionesDesc = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9" , "10", "11" , "12"};
+        String[] opcionesDesc = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"};
         comboDescuento = crearComboBlanco(opcionesDesc, bordeNegro);
-        comboDescuento.setPreferredSize(new Dimension(60, alturaFija));
+        comboDescuento.setPreferredSize(new Dimension(110, alturaFija)); // Mismo ancho que el DNI
 
-        pnlDescuentoContenedor.add(comboDescuento);
-
-        JLabel lblMeses = new JLabel("Meses");
-        lblMeses.setFont(labelFont);
-        pnlDescuentoContenedor.add(lblMeses);
+        pnlDescWrap.add(comboDescuento);
+        pnlDescWrap.add(new JLabel("  Meses"));
 
         gbc.gridx = 1;
-        card.add(pnlDescuentoContenedor, gbc);
+        card.add(pnlDescWrap, gbc);
 
 
         // Forma de Pago
-        gbc.gridy = 9; gbc.gridx = 0;
+        gbc.gridy = 9;
+        gbc.gridx = 0;
         card.add(new JLabel("F. Pago:", SwingConstants.LEFT), gbc);
         comboPago = crearComboBlanco(new String[]{"", "Efectivo", "Tarjeta", "Domiciliación", "Bizum"}, bordeNegro);
         comboPago.setPreferredSize(new Dimension(170, alturaFija));
-        gbc.gridx = 1; card.add(comboPago, gbc);
+        gbc.gridx = 1;
+        card.add(comboPago, gbc);
 
         gbcPrincipal.gridy = 1;
         add(card, gbcPrincipal);
@@ -149,6 +152,7 @@ public class PanelSocio extends JPanel {
             public void mouseEntered(java.awt.event.MouseEvent e) {
                 btnConfirmar.setBackground(colorHoverAlta);
             }
+
             @Override
             public void mouseExited(java.awt.event.MouseEvent e) {
                 btnConfirmar.setBackground(colorOriginalAlta);
@@ -209,16 +213,18 @@ public class PanelSocio extends JPanel {
                 JOptionPane.showMessageDialog(this, "Error al guardar en BD: " + ex.getMessage());
             }
         });
+        configurarSaltoEnter(); // Solo esta línea
+    }// Y esta llave cierra el public PanelSocio()
 
 
-    }
 
-    private void actualizarInterfaz() {
-        SwingUtilities.invokeLater(() -> {
-            Window win = SwingUtilities.getWindowAncestor(this);
-            if (win instanceof VentanaPrincipal) ((VentanaPrincipal) win).actualizarContador();
-        });
-    }
+
+
+
+
+
+
+
 
     private void limpiarCampos() {
         txtNombre.setText(""); txtDni.setText(""); txtDomicilio.setText("");
@@ -301,4 +307,33 @@ public class PanelSocio extends JPanel {
             g2.dispose();
         }
     }
-}
+
+        private void configurarSaltoEnter() {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
+                if (e.getID() == java.awt.event.KeyEvent.KEY_PRESSED && e.getKeyCode() == java.awt.event.KeyEvent.VK_ENTER) {
+                    Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+
+                    if (focusOwner instanceof javax.swing.text.JTextComponent || focusOwner instanceof JComboBox) {
+                        // Si no es el combo de pago y está en este panel, salta
+                        if (focusOwner != comboPago && SwingUtilities.isDescendingFrom(focusOwner, this)) {
+                            focusOwner.transferFocus();
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+        }
+
+    private void actualizarInterfaz() {
+        SwingUtilities.invokeLater(() -> {
+            Window win = SwingUtilities.getWindowAncestor(this);
+            if (win instanceof VentanaPrincipal) {
+                ((VentanaPrincipal) win).actualizarContador();
+            }
+        });
+    }
+
+
+
+    }
