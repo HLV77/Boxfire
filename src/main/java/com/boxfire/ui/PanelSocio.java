@@ -161,23 +161,32 @@ public class PanelSocio extends JPanel {
 
 
         btnConfirmar.addActionListener(e -> {
-            // 1. Limpiamos y validamos la fecha
-            String fechaLimpia = txtFechaNac.getText().replace("_", "").trim();
+            // 1. Extraemos solo los números para saber si el usuario escribió algo real
+            String soloNumeros = txtFechaNac.getText().replaceAll("[^0-9]", "").trim();
+            String fechaParaSQL = null;
 
-            if (fechaLimpia.length() < 10) {
-                JOptionPane.showMessageDialog(this, "⚠️ Por favor, completa la fecha (dd/mm/aaaa).");
-                return;
+            // 2. Si NO hay números, ignoramos el campo y guardamos (sin avisos)
+            if (!soloNumeros.isEmpty()) {
+                String fechaLimpia = txtFechaNac.getText().replace("_", "").trim();
+
+                try {
+                    // Si tiene algo, tiene que ser una fecha completa (10 caracteres incluyendo /)
+                    if (fechaLimpia.length() == 10) {
+                        DateTimeFormatter v = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                        java.time.LocalDate fechaValidada = java.time.LocalDate.parse(fechaLimpia, v);
+                        fechaParaSQL = fechaValidada.toString();
+                    } else {
+                        // Si escribió algún número pero no terminó la fecha
+                        JOptionPane.showMessageDialog(this, "⚠️ Por favor, complete la fecha o bórrela totalmente.");
+                        return;
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "⚠️ La fecha no es válida.");
+                    return;
+                }
             }
 
-            try {
-                DateTimeFormatter v = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                java.time.LocalDate.parse(fechaLimpia, v);
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "⚠️ La fecha '" + fechaLimpia + "' no es válida.");
-                return;
-            }
-
-            // 2. Guardar en BD
+            // 2. Guardar en BD (Asegúrate de que esta parte use la variable fechaParaSQL)
             try (java.sql.Connection conn = com.boxfire.db.ConexionDB.conectar()) {
                 String sql = "INSERT INTO socios (nombre, dni, domicilio, fecha_nacimiento, telefono, email, tarifa, periodicidad, descuento, forma_pago, esta_activo, fecha_alta) VALUES (?,?,?,?,?,?,?,?,?,?,1,?)";
                 java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -185,10 +194,8 @@ public class PanelSocio extends JPanel {
                 pstmt.setString(1, txtNombre.getText());
                 pstmt.setString(2, txtDni.getText());
                 pstmt.setString(3, txtDomicilio.getText());
+                pstmt.setString(4, fechaParaSQL); // <-- Aquí pasamos el valor (será null si estaba vacío)
 
-                // Formatear fecha para SQL (dd/mm/aaaa -> aaaa-mm-dd)
-                String[] f = fechaLimpia.split("/");
-                pstmt.setString(4, f[2] + "-" + f[1] + "-" + f[0]);
 
                 pstmt.setString(5, txtTelefono.getText());
                 pstmt.setString(6, txtEmail.getText());
@@ -215,15 +222,6 @@ public class PanelSocio extends JPanel {
         });
         configurarSaltoEnter(); // Solo esta línea
     }// Y esta llave cierra el public PanelSocio()
-
-
-
-
-
-
-
-
-
 
 
     private void limpiarCampos() {
