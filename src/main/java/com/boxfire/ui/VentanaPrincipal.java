@@ -139,7 +139,13 @@ public class VentanaPrincipal extends JFrame {
                 actualizarPanelCentral(new PanelListadoSocios());
             } else if (texto.equals("Cobros Mensuales")) {
                 actualizarPanelCentral(new PanelCobros());
+            } else if (texto.equals("Control de Impagos")) {
+                PanelImpagos pi = new PanelImpagos(); // 1. Creamos el panel
+                pi.cargarImpagos();                   // 2. Cargamos los datos (ESTO ES LO QUE FALTABA)
+                actualizarPanelCentral(pi);           // 3. Lo mostramos
             }
+
+
         });
         return btn;
     }

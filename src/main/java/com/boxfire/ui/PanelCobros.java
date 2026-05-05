@@ -7,6 +7,7 @@ import java.sql.*;
 import java.util.Calendar;
 import com.boxfire.db.ConexionDB;
 
+
 public class PanelCobros extends JPanel {
     private JTable tabla;
     private DefaultTableModel modelo;
@@ -34,7 +35,6 @@ public class PanelCobros extends JPanel {
         panelFiltro.add(comboAnio);
 
 
-
         panelNorte.add(titulo, BorderLayout.NORTH);
         panelNorte.add(panelFiltro, BorderLayout.CENTER);
         add(panelNorte, BorderLayout.NORTH);
@@ -45,7 +45,9 @@ public class PanelCobros extends JPanel {
 
         modelo = new DefaultTableModel(columnas, 0) {
             @Override
-            public boolean isCellEditable(int r, int c) { return false; }
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
 
         tabla = new JTable(modelo);
@@ -70,7 +72,6 @@ public class PanelCobros extends JPanel {
         panelFiltro.repaint();
 
 
-
         tabla.setRowHeight(35);
         tabla.getTableHeader().setReorderingAllowed(false);
 
@@ -80,7 +81,10 @@ public class PanelCobros extends JPanel {
         // Acción: Doble clic para COBRAR
         configurarDobleClic();
 
-        add(new JScrollPane(tabla), BorderLayout.CENTER);
+        JScrollPane scroll = new JScrollPane(tabla);
+        tabla.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        add(scroll, BorderLayout.CENTER);
+
 
         comboAnio.addActionListener(e -> cargarDatos());
         cargarDatos();
@@ -115,7 +119,6 @@ public class PanelCobros extends JPanel {
                 "ORDER BY s.nombre ASC";
 
 
-
         try (Connection conn = ConexionDB.conectar();
              PreparedStatement pstmt = conn.prepareStatement(sqlSocios)) {
 
@@ -141,10 +144,11 @@ public class PanelCobros extends JPanel {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        ajustarAnchoNombre();
     }
 
-
-    private String obtenerEstadoPago(Connection conn, int id, int mes, int anio, double tarifaActual, int estaActivo) {
+    public static String obtenerEstadoPago(Connection conn, int id, int mes, int anio, double tarifaActual, int estaActivo) {
         // 1. Mirar si ya hay un pago (Check verde)
         String sqlPago = "SELECT cuota_pagada, estado_pago FROM pagos WHERE num_socio=? AND mes=? AND anio=?";
         try (PreparedStatement pstmt = conn.prepareStatement(sqlPago)) {
@@ -152,10 +156,22 @@ public class PanelCobros extends JPanel {
             pstmt.setInt(2, mes);
             pstmt.setInt(3, anio);
             ResultSet rsP = pstmt.executeQuery();
+            // Busca este bloque en obtenerEstadoPago y cámbialo
             if (rsP.next() && rsP.getInt("estado_pago") == 1) {
-                return rsP.getDouble("cuota_pagada") + "€ ✔";
+                double pagado = rsP.getDouble("cuota_pagada");
+
+                // Ahora solo dirá REGALO si el precio es 0 de verdad (porque tú lo has regalado)
+                if (pagado == 0) {
+                    return "REGALO ✔";
+                } else {
+                    return pagado + "€ ✔";
+                }
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
         // 2. Lógica de ALTA y BAJA
         String sqlFechas = "SELECT fecha_alta, fecha_baja FROM socios WHERE num_socio = ?";
@@ -179,15 +195,13 @@ public class PanelCobros extends JPanel {
                     if (fechaCelda.isAfter(baja)) return "";
                 }
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
         // 3. Si no hay pago y debe estar activo, mostrar la tarifa
         return (estaActivo == 1 || estaActivo == 0) ? tarifaActual + "€" : "";
     }
-
-
-
-
 
 
     private void configurarDobleClic() {
@@ -208,17 +222,13 @@ public class PanelCobros extends JPanel {
         int id = (int) modelo.getValueAt(fila, 0);
         String nombre = (String) modelo.getValueAt(fila, 1);
         int mesNum = col - 1;
-        String[] meses = {"", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
-        String nombreMes = meses[mesNum];
         int anio = (int) comboAnio.getSelectedItem();
-
         String valorActual = modelo.getValueAt(fila, col).toString();
 
         if (valorActual.isEmpty()) return;
 
-        // Si ya está pagado, preguntar para anular
         if (valorActual.contains("✔")) {
-            int borrar = JOptionPane.showConfirmDialog(this, "¿Anular pago de " + nombreMes + "?", "Anular", JOptionPane.YES_NO_OPTION);
+            int borrar = JOptionPane.showConfirmDialog(this, "¿Anular pago?", "Anular", JOptionPane.YES_NO_OPTION);
             if (borrar == JOptionPane.YES_OPTION) {
                 eliminarPagoDeBD(id, mesNum, anio);
                 cargarDatos();
@@ -226,37 +236,71 @@ public class PanelCobros extends JPanel {
             return;
         }
 
-        // --- MODIFICACIÓN MANUAL DEL PRECIO ---
-        // Sacamos el precio sugerido (quitando el símbolo €)
-        String precioSugerido = valorActual.replace("€", "").trim();
+        double tarifaSugerida = 0;
+        int mesesRegaloDefecto = 0;
 
-        // Pedimos el importe final con un cuadro de texto
-        String input = JOptionPane.showInputDialog(this,
-                "Cobro para: " + nombre + " (" + nombreMes + ")\nImporte a cobrar:",
-                precioSugerido);
+        // Abrimos conexión para leer datos iniciales
+        try (Connection conn = ConexionDB.conectar();
+             PreparedStatement pstmt = conn.prepareStatement("SELECT tarifa, descuento FROM socios WHERE num_socio = ?")) {
+            pstmt.setInt(1, id);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                tarifaSugerida = rs.getDouble("tarifa");
+                mesesRegaloDefecto = rs.getInt("descuento");
+            }
+        } catch (SQLException ex) { ex.printStackTrace(); }
 
-        // Si el usuario no cancela y escribe algo...
-        if (input != null && !input.trim().isEmpty()) {
-            try {
-                // Cambiamos coma por punto por si el usuario escribe "10,50"
-                double tarifaFinal = Double.parseDouble(input.replace(",", "."));
+        JPanel panelCobro = new JPanel(new GridLayout(3, 2, 10, 10));
+        JTextField txtImporte = new JTextField(String.valueOf(tarifaSugerida));
+        JComboBox<String> comboMesesPaga = new JComboBox<>(new String[]{"1 Mes", "3 Meses (Trimestral)", "6 Meses (Semestral)", "12 Meses (Anual)"});
+        JTextField txtRegalo = new JTextField(String.valueOf(mesesRegaloDefecto));
 
-                String sql = "INSERT INTO pagos (num_socio, mes, anio, cuota_pagada, estado_pago) VALUES (?,?,?,?,1)";
-                try (Connection conn = ConexionDB.conectar();
-                     PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                    pstmt.setInt(1, id);
-                    pstmt.setInt(2, mesNum);
-                    pstmt.setInt(3, anio);
-                    pstmt.setDouble(4, tarifaFinal);
-                    pstmt.executeUpdate();
-                    cargarDatos(); // Refrescamos para que salga el check verde
+        panelCobro.add(new JLabel("Importe (€):")); panelCobro.add(txtImporte);
+        panelCobro.add(new JLabel("Periodo que paga:")); panelCobro.add(comboMesesPaga);
+        panelCobro.add(new JLabel("Meses de regalo:")); panelCobro.add(txtRegalo);
+
+        int result = JOptionPane.showConfirmDialog(this, panelCobro, "Registrar Cobro - " + nombre, JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
+            try (Connection conn = ConexionDB.conectar()) {
+                double importeTotal = Double.parseDouble(txtImporte.getText().replace(",", "."));
+                int mesesRegalo = Integer.parseInt(txtRegalo.getText());
+
+                // Determinamos los meses del pack según el desplegable
+                int mesesPack = switch (comboMesesPaga.getSelectedIndex()) {
+                    case 1 -> 3;
+                    case 2 -> 6;
+                    case 3 -> 12;
+                    default -> 1;
+                };
+
+                // Calculamos cuántos de esos meses son de pago real
+                int mesesDePagoReal = mesesPack - mesesRegalo;
+                if (mesesDePagoReal < 1) mesesDePagoReal = 1;
+
+                java.time.LocalDate fecha = java.time.LocalDate.of(anio, mesNum, 1);
+
+                for (int i = 0; i < mesesPack; i++) {
+                    double cuotaAImprimir;
+
+                    if (i < mesesDePagoReal) {
+                        // Repartimos el importe total entre los meses de pago real
+                        cuotaAImprimir = importeTotal / mesesDePagoReal;
+                    } else {
+                        // El resto de meses del pack son GRATIS
+                        cuotaAImprimir = 0.0;
+                    }
+
+                    guardarPagoEnBD(conn, id, fecha.getMonthValue(), fecha.getYear(), cuotaAImprimir);
+                    fecha = fecha.plusMonths(1);
                 }
-            } catch (NumberFormatException e) {
-                JOptionPane.showMessageDialog(this, "Error: Introduce un número válido (ejemplo: 25.50)");
-            } catch (SQLException e) {
-                e.printStackTrace();
+
+                cargarDatos();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "⚠️ Error: Revisa los números introducidos.");
             }
         }
+
     }
 
 
@@ -275,5 +319,45 @@ public class PanelCobros extends JPanel {
         }
     }
 
+    private void ajustarAnchoNombre() {
+        int anchoMaximo = 150;
 
-}
+        int anchoTitulo = (int) tabla.getTableHeader().getDefaultRenderer()
+                .getTableCellRendererComponent(tabla, "Socio", false, false, -1, 1)
+                .getPreferredSize().getWidth();
+        anchoMaximo = Math.max(anchoMaximo, anchoTitulo);
+
+        for (int row = 0; row < tabla.getRowCount(); row++) {
+            int anchoCelda = (int) tabla.getCellRenderer(row, 1)
+                    .getTableCellRendererComponent(tabla, tabla.getValueAt(row, 1), false, false, row, 1)
+                    .getPreferredSize().getWidth();
+            anchoMaximo = Math.max(anchoMaximo, anchoCelda);
+        }
+
+        tabla.getColumnModel().getColumn(1).setPreferredWidth(anchoMaximo + 15);
+    }
+
+    private void guardarPagoEnBD(Connection conn, int id, int mes, int anio, double cuota) throws SQLException {
+        String sql = "INSERT INTO pagos (num_socio, mes, anio, cuota_pagada, estado_pago) VALUES (?,?,?,?,1)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, id);
+            pstmt.setInt(2, mes);
+            pstmt.setInt(3, anio);
+            pstmt.setDouble(4, cuota);
+            pstmt.executeUpdate();
+        }
+    }
+
+    private int obtenerDescuentoSocio(int idSocio) {
+        String sql = "SELECT descuento FROM socios WHERE num_socio = ?";
+        try (Connection conn = ConexionDB.conectar();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, idSocio);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getInt("descuento");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+} // <--- ESTA ES LA ÚNICA LLAVE QUE CIERRA LA CLASE

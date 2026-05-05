@@ -186,39 +186,86 @@ public class PanelSocio extends JPanel {
                 }
             }
 
-            // 2. Guardar en BD (Asegúrate de que esta parte use la variable fechaParaSQL)
+            // 2. Guardar en BD y generar cobros automáticos
             try (java.sql.Connection conn = com.boxfire.db.ConexionDB.conectar()) {
+                // Añadimos RETURN_GENERATED_KEYS para saber qué ID le da la base de datos
                 String sql = "INSERT INTO socios (nombre, dni, domicilio, fecha_nacimiento, telefono, email, tarifa, periodicidad, descuento, forma_pago, esta_activo, fecha_alta) VALUES (?,?,?,?,?,?,?,?,?,?,1,?)";
-                java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
+                java.sql.PreparedStatement pstmt = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS);
 
                 pstmt.setString(1, txtNombre.getText());
                 pstmt.setString(2, txtDni.getText());
                 pstmt.setString(3, txtDomicilio.getText());
-                pstmt.setString(4, fechaParaSQL); // <-- Aquí pasamos el valor (será null si estaba vacío)
-
-
+                pstmt.setString(4, fechaParaSQL);
                 pstmt.setString(5, txtTelefono.getText());
                 pstmt.setString(6, txtEmail.getText());
 
-                String sel = comboTarifa.getSelectedItem().toString();
-                pstmt.setDouble(7, sel.isEmpty() ? 0 : Double.parseDouble(sel));
-                pstmt.setString(8, comboPeriodicidad.getSelectedItem().toString());
+                double tarifa = Double.parseDouble(comboTarifa.getSelectedItem().toString().isEmpty() ? "0" : comboTarifa.getSelectedItem().toString());
+                pstmt.setDouble(7, tarifa);
 
-                String descSel = comboDescuento.getSelectedItem().toString();
-                pstmt.setDouble(9, Double.parseDouble(descSel));
+                String periodicidad = comboPeriodicidad.getSelectedItem().toString();
+                pstmt.setString(8, periodicidad);
+
+                int mesesRegalo = Integer.parseInt(comboDescuento.getSelectedItem().toString());
+                pstmt.setDouble(9, mesesRegalo);
 
                 pstmt.setString(10, comboPago.getSelectedItem().toString());
                 pstmt.setString(11, java.time.LocalDate.now().toString());
 
                 pstmt.executeUpdate();
-                JOptionPane.showMessageDialog(this, "✅ Socio guardado correctamente");
+
+                // --- NUEVO: GENERAR PAGOS AUTOMÁTICOS AL ALTA ---
+                int idSocio = 0;
+                try (java.sql.ResultSet rs = pstmt.getGeneratedKeys()) {
+                    if (rs.next()) idSocio = rs.getInt(1);
+                }
+
+                // --- BLOQUE DE PAGOS AUTOMÁTICOS ---
+                if (idSocio > 0) {
+                    // (Asegúrate de que estas variables ya estén declaradas arriba en el método)
+                    periodicidad = comboPeriodicidad.getSelectedItem().toString();
+                    tarifa = Double.parseDouble(comboTarifa.getSelectedItem().toString().isEmpty() ? "0" : comboTarifa.getSelectedItem().toString());
+                    mesesRegalo = Integer.parseInt(comboDescuento.getSelectedItem().toString());
+
+                    int mesesPack = switch (periodicidad) {
+                        case "Trimestral" -> 3;
+                        case "Semestral" -> 6;
+                        case "Anual" -> 12;
+                        default -> 1;
+                    };
+
+                    int mesesDePagoReal = mesesPack - mesesRegalo;
+                    if (mesesDePagoReal < 1) mesesDePagoReal = 1;
+
+                    java.time.LocalDate fechaVence = java.time.LocalDate.now();
+                    String sqlPagos = "INSERT INTO pagos (num_socio, mes, anio, cuota_pagada, estado_pago) VALUES (?,?,?,?,1)";
+
+                    try (java.sql.PreparedStatement pstmtPagos = conn.prepareStatement(sqlPagos)) {
+                        for (int i = 0; i < mesesPack; i++) {
+                            pstmtPagos.setInt(1, idSocio);
+                            pstmtPagos.setInt(2, fechaVence.getMonthValue());
+                            pstmtPagos.setInt(3, fechaVence.getYear());
+
+                            // Repartimos la tarifa entre los meses que no son de regalo
+                            double cuotaMes = (i < mesesDePagoReal) ? (tarifa / mesesDePagoReal) : 0.0;
+
+                            pstmtPagos.setDouble(4, cuotaMes);
+                            pstmtPagos.executeUpdate();
+                            fechaVence = fechaVence.plusMonths(1);
+                        }
+                    }
+                }
+
+
+
+                JOptionPane.showMessageDialog(this, "✅ Socio guardado y pagos iniciales registrados correctamente.");
 
                 actualizarInterfaz();
                 limpiarCampos();
 
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error al guardar en BD: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Error al guardar: " + ex.getMessage());
             }
+
         });
         configurarSaltoEnter(); // Solo esta línea
     }// Y esta llave cierra el public PanelSocio()

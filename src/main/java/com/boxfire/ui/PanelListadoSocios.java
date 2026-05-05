@@ -178,30 +178,35 @@ public class PanelListadoSocios extends JPanel {
             }
         });
 
-        // Detectar cuando el usuario marca o desmarca el Check de "Estado"
+        // --- VIGILANTE ÚNICO PARA GUARDAR CAMBIOS AUTOMÁTICAMENTE ---
         modelo.addTableModelListener(e -> {
             if (e.getType() == javax.swing.event.TableModelEvent.UPDATE) {
                 int fila = e.getFirstRow();
                 int columna = e.getColumn();
 
+                // Evitamos errores si la fila o columna no existen
+                if (fila < 0 || columna < 0) return;
+
                 if (columna == 2) {
+                    // Si cambias el Checkbox (ALTA/BAJA)
                     boolean estaActivo = (boolean) modelo.getValueAt(fila, columna);
                     int numSocio = (int) modelo.getValueAt(fila, 0);
 
-                    // 1. Actualizamos la BD
                     actualizarEstadoSocioEnBD(numSocio, estaActivo);
 
-                    // 2. Avisamos a la Ventana Principal
+                    // Refrescamos contador de la ventana y reordenamos
                     Window win = SwingUtilities.getWindowAncestor(this);
                     if (win instanceof VentanaPrincipal) {
                         ((VentanaPrincipal) win).actualizarContador();
                     }
-
-                    // --- AÑADE ESTO AQUÍ PARA EL CAMBIO DE COLOR INSTANTÁNEO ---
-                    tabla.repaint();
+                    cargarDatos();
+                } else {
+                    // SI EDITAS CUALQUIER OTRA CELDA (Nombre, DNI, Tarifa, etc.)
+                    actualizarDatoSocio(fila, columna);
                 }
             }
         });
+
 
 
 
@@ -240,28 +245,6 @@ public class PanelListadoSocios extends JPanel {
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createEmptyBorder(10, 15, 20, 15));
 
-        // Detectar cuando el usuario marca o desmarca el Check de "Estado"
-        modelo.addTableModelListener(e -> {
-            if (e.getType() == javax.swing.event.TableModelEvent.UPDATE) {
-                int fila = e.getFirstRow();
-                int columna = e.getColumn();
-
-                // La columna 2 es la del Check (Estado)
-                if (columna == 2) {
-                    boolean estaActivo = (boolean) modelo.getValueAt(fila, columna);
-                    int numSocio = (int) modelo.getValueAt(fila, 0); // Sacamos el Nº de socio
-
-                    // 1. Actualizamos la Base de Datos
-                    actualizarEstadoSocioEnBD(numSocio, estaActivo);
-
-                    // 2. Avisamos a la Ventana Principal para que refresque el contador
-                    Window win = SwingUtilities.getWindowAncestor(this);
-                    if (win instanceof VentanaPrincipal) {
-                        ((VentanaPrincipal) win).actualizarContador();
-                    }
-                }
-            }
-        });
 
 
         // Forzamos que siempre pueda haber scroll horizontal si es necesario
@@ -333,10 +316,11 @@ public class PanelListadoSocios extends JPanel {
     }
 
     private void cargarDatos() {
-        // Limpiamos la tabla por si acaso
+        // 1. Limpiamos la tabla
         modelo.setRowCount(0);
 
-        String sql = "SELECT * FROM socios ORDER BY num_socio ASC";
+        // 2. Consulta ordenada: Activos (1) arriba, Bajas (0) abajo
+        String sql = "SELECT * FROM socios ORDER BY esta_activo DESC, nombre ASC";
 
         try (Connection conn = ConexionDB.conectar();
              Statement stmt = conn.createStatement();
@@ -348,14 +332,10 @@ public class PanelListadoSocios extends JPanel {
                 fila[1] = rs.getString("nombre");
                 fila[2] = rs.getInt("esta_activo") == 1;
 
-
-
-                // --- CAMBIO AQUÍ: Quitamos los símbolos € y % ---
-                // Convertimos a entero para que no salgan decimales como .0
+                // Precios y descuentos sin decimales
                 fila[3] = String.valueOf((int)rs.getDouble("tarifa"));
                 fila[4] = rs.getString("periodicidad");
                 fila[5] = String.valueOf((int)rs.getDouble("descuento"));
-                // ------------------------------------------------
 
                 fila[6] = rs.getString("forma_pago");
                 fila[7] = rs.getString("dni");
@@ -367,13 +347,13 @@ public class PanelListadoSocios extends JPanel {
                 modelo.addRow(fila);
             }
 
-
             autoAjustarColumnas();
 
         } catch (SQLException e) {
             System.out.println("Error al cargar listado: " + e.getMessage());
         }
     }
+
 
     private void autoAjustarColumnas() {
         for (int column = 0; column < tabla.getColumnCount(); column++) {
