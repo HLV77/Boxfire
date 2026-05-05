@@ -46,9 +46,10 @@ public class PanelListadoSocios extends JPanel {
 
         // 2. CONFIGURACIÓN DE COLUMNAS (Con unidades en el título)
         String[] columnas = {
-                "Nº", "Nombre", "Estado", "Tarifa (€)", "Periodicidad",
-                "Dto (Meses)", "F. Pago", "DNI", "Domicilio", "F. Nacimiento", "Teléfono", "E-mail"
+                "Nº", "Nombre", "Estado", "Tarifa (€)", "F. Pago",
+                "DNI", "Domicilio", "F. Nacimiento", "Teléfono", "E-mail"
         };
+
 
 
         // 2. CONFIGURACIÓN DE COLUMNAS
@@ -132,33 +133,22 @@ public class PanelListadoSocios extends JPanel {
 
         // 1. Creamos las listas de opciones
         String[] precios = {"45", "50", "55", "60", "65", "70", "75", "80", "85", "90"};
-        String[] mesesDesc = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"};
-        String[] opcionesPeriodo = {"Mensual", "Trimestral", "Semestral", "Anual"};
         String[] opcionesPago = {"Efectivo", "Tarjeta", "Domiciliación", "Bizum"};
 
                 // 2. Creamos los componentes desplegables
         JComboBox<String> comboTarifaTab = new JComboBox<>(precios);
-        JComboBox<String> comboDescuentoTab = new JComboBox<>(mesesDesc);
-        JComboBox<String> comboPeriodicidad = new JComboBox<>(opcionesPeriodo);
         JComboBox<String> comboPago = new JComboBox<>(opcionesPago);
 
 
 
         comboTarifaTab.setBackground(Color.WHITE);
-        comboDescuentoTab.setBackground(Color.WHITE);
-        comboPeriodicidad.setBackground(Color.WHITE);
         comboPago.setBackground(Color.WHITE);
 
 
         // 3. Asignamos cada desplegable a su columna
         tabla.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(comboTarifaTab));    // Tarifa
-        tabla.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(comboPeriodicidad)); // Periodicidad
-        tabla.getColumnModel().getColumn(5).setCellEditor(new DefaultCellEditor(comboDescuentoTab)); // Descuento
         tabla.getColumnModel().getColumn(6).setCellEditor(new DefaultCellEditor(comboPago));        // F. Pago
 
-
-        // Columna 4 es Periodicidad
-        tabla.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(comboPeriodicidad));
 
         // Columna 6 es Forma de Pago
         tabla.getColumnModel().getColumn(6).setCellEditor(new DefaultCellEditor(comboPago));
@@ -327,25 +317,23 @@ public class PanelListadoSocios extends JPanel {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                Object[] fila = new Object[12];
+                Object[] fila = new Object[10]; // Ahora son 10 columnas en lugar de 12
                 fila[0] = rs.getInt("num_socio");
                 fila[1] = rs.getString("nombre");
                 fila[2] = rs.getInt("esta_activo") == 1;
-
-                // Precios y descuentos sin decimales
                 fila[3] = String.valueOf((int)rs.getDouble("tarifa"));
-                fila[4] = rs.getString("periodicidad");
-                fila[5] = String.valueOf((int)rs.getDouble("descuento"));
 
-                fila[6] = rs.getString("forma_pago");
-                fila[7] = rs.getString("dni");
-                fila[8] = rs.getString("domicilio");
-                fila[9] = rs.getString("fecha_nacimiento");
-                fila[10] = rs.getString("telefono");
-                fila[11] = rs.getString("email");
+                // Saltamos periodicidad y descuento y vamos directos a Forma de Pago
+                fila[4] = rs.getString("forma_pago");
+                fila[5] = rs.getString("dni");
+                fila[6] = rs.getString("domicilio");
+                fila[7] = rs.getString("fecha_nacimiento");
+                fila[8] = rs.getString("telefono");
+                fila[9] = rs.getString("email");
 
                 modelo.addRow(fila);
             }
+
 
             autoAjustarColumnas();
 
@@ -402,18 +390,17 @@ public class PanelListadoSocios extends JPanel {
             case 1: nombreColumna = "nombre"; break;
             case 2:
                 nombreColumna = "esta_activo";
-                // Ahora recibimos un true/false del Checkbox, no la palabra "ALTA"
                 nuevoValor = (boolean) nuevoValor ? 1 : 0;
                 break;
             case 3: nombreColumna = "tarifa"; break;
-            case 4: nombreColumna = "periodicidad"; break;
-            case 5: nombreColumna = "descuento"; break;
-            case 6: nombreColumna = "forma_pago"; break;
-            case 7: nombreColumna = "dni"; break;
-            case 8: nombreColumna = "domicilio"; break;
-            case 10: nombreColumna = "telefono"; break;
-            case 11: nombreColumna = "email"; break;
+            case 4: nombreColumna = "forma_pago"; break; // Ahora F. Pago es la columna 4
+            case 5: nombreColumna = "dni"; break;
+            case 6: nombreColumna = "domicilio"; break;
+            case 7: nombreColumna = "fecha_nacimiento"; break;
+            case 8: nombreColumna = "telefono"; break;
+            case 9: nombreColumna = "email"; break;
         }
+
 
         if (!nombreColumna.isEmpty()) {
             String sql = "UPDATE socios SET " + nombreColumna + " = ? WHERE num_socio = ?";

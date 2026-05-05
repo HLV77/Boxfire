@@ -90,40 +90,11 @@ public class PanelSocio extends JPanel {
         card.add(pnlTarifaWrap, gbc);
 
 
-        // Periodicidad
-        gbc.gridy = 7;
-        gbc.gridx = 0;
-        card.add(new JLabel("Periodicidad:", SwingConstants.LEFT), gbc);
-        comboPeriodicidad = crearComboBlanco(new String[]{"", "Mensual", "Trimestral", "Semestral", "Anual"}, bordeNegro);
-        comboPeriodicidad.setPreferredSize(new Dimension(120, alturaFija));
-        gbc.gridx = 1;
-        card.add(comboPeriodicidad, gbc);
-
-        // Descuento alineado con Meses
-        gbc.gridy = 8;
-        gbc.gridx = 0;
-        card.add(new JLabel("Descuento:"), gbc);
-
-        JPanel pnlDescWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        pnlDescWrap.setOpaque(false);
-        pnlDescWrap.setPreferredSize(new Dimension(200, alturaFija)); // Más ancho para la palabra "Meses"
-
-        String[] opcionesDesc = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"};
-        comboDescuento = crearComboBlanco(opcionesDesc, bordeNegro);
-        comboDescuento.setPreferredSize(new Dimension(110, alturaFija)); // Mismo ancho que el DNI
-
-        pnlDescWrap.add(comboDescuento);
-        pnlDescWrap.add(new JLabel("  Meses"));
-
-        gbc.gridx = 1;
-        card.add(pnlDescWrap, gbc);
-
-
         // Forma de Pago
         gbc.gridy = 9;
         gbc.gridx = 0;
         card.add(new JLabel("F. Pago:", SwingConstants.LEFT), gbc);
-        comboPago = crearComboBlanco(new String[]{"", "Efectivo", "Tarjeta", "Domiciliación", "Bizum"}, bordeNegro);
+        comboPago = crearComboBlanco(new String[]{"", "Efectivo/Tarjeta/Bizum", "Domiciliación"}, bordeNegro);
         comboPago.setPreferredSize(new Dimension(170, alturaFija));
         gbc.gridx = 1;
         card.add(comboPago, gbc);
@@ -161,36 +132,32 @@ public class PanelSocio extends JPanel {
 
 
         btnConfirmar.addActionListener(e -> {
-            // 1. Extraemos solo los números para saber si el usuario escribió algo real
+            // 1. Validamos la fecha de nacimiento (solo si hay algo escrito)
             String soloNumeros = txtFechaNac.getText().replaceAll("[^0-9]", "").trim();
             String fechaParaSQL = null;
 
-            // 2. Si NO hay números, ignoramos el campo y guardamos (sin avisos)
             if (!soloNumeros.isEmpty()) {
                 String fechaLimpia = txtFechaNac.getText().replace("_", "").trim();
-
                 try {
-                    // Si tiene algo, tiene que ser una fecha completa (10 caracteres incluyendo /)
                     if (fechaLimpia.length() == 10) {
-                        DateTimeFormatter v = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                        java.time.format.DateTimeFormatter v = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
                         java.time.LocalDate fechaValidada = java.time.LocalDate.parse(fechaLimpia, v);
                         fechaParaSQL = fechaValidada.toString();
                     } else {
-                        // Si escribió algún número pero no terminó la fecha
                         JOptionPane.showMessageDialog(this, "⚠️ Por favor, complete la fecha o bórrela totalmente.");
                         return;
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "⚠️ La fecha no es válida.");
+                    JOptionPane.showMessageDialog(this, "⚠️ La fecha de nacimiento no es válida.");
                     return;
                 }
             }
 
-            // 2. Guardar en BD y generar cobros automáticos
+            // 2. Guardar en Base de Datos (10 columnas exactas)
+            String sql = "INSERT INTO socios (nombre, dni, domicilio, fecha_nacimiento, telefono, email, tarifa, forma_pago, esta_activo, fecha_alta) VALUES (?,?,?,?,?,?,?,?,?,?)";
+
             try (java.sql.Connection conn = com.boxfire.db.ConexionDB.conectar()) {
-                // Añadimos RETURN_GENERATED_KEYS para saber qué ID le da la base de datos
-                String sql = "INSERT INTO socios (nombre, dni, domicilio, fecha_nacimiento, telefono, email, tarifa, periodicidad, descuento, forma_pago, esta_activo, fecha_alta) VALUES (?,?,?,?,?,?,?,?,?,?,1,?)";
-                java.sql.PreparedStatement pstmt = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS);
+                java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
 
                 pstmt.setString(1, txtNombre.getText());
                 pstmt.setString(2, txtDni.getText());
@@ -199,83 +166,50 @@ public class PanelSocio extends JPanel {
                 pstmt.setString(5, txtTelefono.getText());
                 pstmt.setString(6, txtEmail.getText());
 
-                double tarifa = Double.parseDouble(comboTarifa.getSelectedItem().toString().isEmpty() ? "0" : comboTarifa.getSelectedItem().toString());
-                pstmt.setDouble(7, tarifa);
+                // Tarifa
+                String selTarifa = comboTarifa.getSelectedItem().toString();
+                pstmt.setDouble(7, selTarifa.isEmpty() ? 0 : Double.parseDouble(selTarifa));
 
-                String periodicidad = comboPeriodicidad.getSelectedItem().toString();
-                pstmt.setString(8, periodicidad);
+                // Forma de Pago (Domiciliación o Efectivo/Tarjeta/Bizum)
+                pstmt.setString(8, comboPago.getSelectedItem().toString());
 
-                int mesesRegalo = Integer.parseInt(comboDescuento.getSelectedItem().toString());
-                pstmt.setDouble(9, mesesRegalo);
+                // Estado activo (1)
+                pstmt.setInt(9, 1);
 
-                pstmt.setString(10, comboPago.getSelectedItem().toString());
-                pstmt.setString(11, java.time.LocalDate.now().toString());
+                // Fecha de alta (Hoy)
+                pstmt.setString(10, java.time.LocalDate.now().toString());
 
                 pstmt.executeUpdate();
 
-                // --- NUEVO: GENERAR PAGOS AUTOMÁTICOS AL ALTA ---
-                int idSocio = 0;
-                try (java.sql.ResultSet rs = pstmt.getGeneratedKeys()) {
-                    if (rs.next()) idSocio = rs.getInt(1);
-                }
-
-                // --- BLOQUE DE PAGOS AUTOMÁTICOS ---
-                if (idSocio > 0) {
-                    // (Asegúrate de que estas variables ya estén declaradas arriba en el método)
-                    periodicidad = comboPeriodicidad.getSelectedItem().toString();
-                    tarifa = Double.parseDouble(comboTarifa.getSelectedItem().toString().isEmpty() ? "0" : comboTarifa.getSelectedItem().toString());
-                    mesesRegalo = Integer.parseInt(comboDescuento.getSelectedItem().toString());
-
-                    int mesesPack = switch (periodicidad) {
-                        case "Trimestral" -> 3;
-                        case "Semestral" -> 6;
-                        case "Anual" -> 12;
-                        default -> 1;
-                    };
-
-                    int mesesDePagoReal = mesesPack - mesesRegalo;
-                    if (mesesDePagoReal < 1) mesesDePagoReal = 1;
-
-                    java.time.LocalDate fechaVence = java.time.LocalDate.now();
-                    String sqlPagos = "INSERT INTO pagos (num_socio, mes, anio, cuota_pagada, estado_pago) VALUES (?,?,?,?,1)";
-
-                    try (java.sql.PreparedStatement pstmtPagos = conn.prepareStatement(sqlPagos)) {
-                        for (int i = 0; i < mesesPack; i++) {
-                            pstmtPagos.setInt(1, idSocio);
-                            pstmtPagos.setInt(2, fechaVence.getMonthValue());
-                            pstmtPagos.setInt(3, fechaVence.getYear());
-
-                            // Repartimos la tarifa entre los meses que no son de regalo
-                            double cuotaMes = (i < mesesDePagoReal) ? (tarifa / mesesDePagoReal) : 0.0;
-
-                            pstmtPagos.setDouble(4, cuotaMes);
-                            pstmtPagos.executeUpdate();
-                            fechaVence = fechaVence.plusMonths(1);
-                        }
-                    }
-                }
-
-
-
-                JOptionPane.showMessageDialog(this, "✅ Socio guardado y pagos iniciales registrados correctamente.");
+                JOptionPane.showMessageDialog(this, "✅ Socio guardado correctamente.");
 
                 actualizarInterfaz();
                 limpiarCampos();
 
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error al guardar: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Error al guardar en BD: " + ex.getMessage());
             }
-
         });
+
         configurarSaltoEnter(); // Solo esta línea
     }// Y esta llave cierra el public PanelSocio()
 
 
     private void limpiarCampos() {
-        txtNombre.setText(""); txtDni.setText(""); txtDomicilio.setText("");
-        txtFechaNac.setText(""); txtTelefono.setText(""); txtEmail.setText("");
-        comboDescuento.setSelectedIndex(0); comboTarifa.setSelectedIndex(0);
-        comboPeriodicidad.setSelectedIndex(0); comboPago.setSelectedIndex(0);
+        // Borramos el texto de los cuadros
+        txtNombre.setText("");
+        txtDni.setText("");
+        txtDomicilio.setText("");
+        txtFechaNac.setText("");
+        txtTelefono.setText("");
+        txtEmail.setText("");
+
+        // Reseteamos los combos que SÍ existen (Tarifa y Pago)
+        comboTarifa.setSelectedIndex(0);
+        comboPago.setSelectedIndex(0);
+
+        // --- IMPORTANTE: Quita las líneas de comboDescuento y comboPeriodicidad ---
+
         txtNombre.requestFocus();
     }
 

@@ -285,7 +285,7 @@ public class PanelCobros extends JPanel {
 
                     if (i < mesesDePagoReal) {
                         // Repartimos el importe total entre los meses de pago real
-                        cuotaAImprimir = importeTotal / mesesDePagoReal;
+                        cuotaAImprimir = importeTotal;
                     } else {
                         // El resto de meses del pack son GRATIS
                         cuotaAImprimir = 0.0;
