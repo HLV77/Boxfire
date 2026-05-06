@@ -137,6 +137,7 @@ public class PanelCobros extends JPanel {
     }
 
     public static String obtenerEstadoPago(Connection conn, int id, int mes, int anio, double tarifaActual, int estaActivo) {
+        // 1. Buscamos si ya existe un pago
         String sqlPago = "SELECT cuota_pagada, metodo_pago FROM pagos WHERE num_socio=? AND mes=? AND anio=?";
         try (PreparedStatement pstmt = conn.prepareStatement(sqlPago)) {
             pstmt.setInt(1, id);
@@ -148,34 +149,54 @@ public class PanelCobros extends JPanel {
                 double pagado = rsP.getDouble("cuota_pagada");
                 String metodo = rsP.getString("metodo_pago");
                 String inicial = "";
+
                 if (metodo != null) {
                     if (metodo.equalsIgnoreCase("Efectivo")) inicial = "E";
                     else if (metodo.equalsIgnoreCase("Tarjeta")) inicial = "T";
                     else if (metodo.equalsIgnoreCase("Bizum")) inicial = "B";
                     else if (metodo.equalsIgnoreCase("Domiciliación")) inicial = "D";
                 }
+
                 if (pagado == 0) return "REGALO ✔";
                 return pagado + "€ [" + inicial + "] ✔";
             }
         } catch (SQLException e) { e.printStackTrace(); }
 
-        String sqlSocio = "SELECT forma_pago, fecha_alta FROM socios WHERE num_socio = ?";
+        // 2. Si no hay pago, comprobamos fechas de ALTA y BAJA
+        String sqlSocio = "SELECT forma_pago, fecha_alta, fecha_baja FROM socios WHERE num_socio = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sqlSocio)) {
             pstmt.setInt(1, id);
             ResultSet rsS = pstmt.executeQuery();
             if (rsS.next()) {
                 String fPago = rsS.getString("forma_pago");
                 String fAlta = rsS.getString("fecha_alta");
+                String fBaja = rsS.getString("fecha_baja");
+
+                java.time.LocalDate fechaCelda = java.time.LocalDate.of(anio, mes, 1);
+
+                // REGLA 1: Si la celda es ANTERIOR al alta, vacío
                 if (fAlta != null && !fAlta.isEmpty()) {
-                    java.time.LocalDate fechaCelda = java.time.LocalDate.of(anio, mes, 1);
                     java.time.LocalDate alta = java.time.LocalDate.parse(fAlta).withDayOfMonth(1);
                     if (fechaCelda.isBefore(alta)) return "";
                 }
-                if (fPago != null && fPago.equalsIgnoreCase("Domiciliación")) return "D - " + tarifaActual + "€";
+
+                // REGLA 2: Si el socio está de baja y la celda es POSTERIOR a la baja, vacío
+                if (estaActivo == 0 && fBaja != null && !fBaja.isEmpty()) {
+                    java.time.LocalDate baja = java.time.LocalDate.parse(fBaja).withDayOfMonth(1);
+                    if (fechaCelda.isAfter(baja)) return "";
+                }
+
+                // Si pasa los filtros y es Domiciliación, ponemos la D
+                if (fPago != null && fPago.equalsIgnoreCase("Domiciliación")) {
+                    return "D - " + tarifaActual + "€";
+                }
             }
         } catch (SQLException e) { e.printStackTrace(); }
-        return tarifaActual + "€";
+
+        // Si está activo y no hay pago, mostramos la tarifa normal
+        return (estaActivo == 1) ? tarifaActual + "€" : "";
     }
+
 
     private void configurarDobleClic() {
         tabla.addMouseListener(new java.awt.event.MouseAdapter() {
