@@ -15,7 +15,8 @@ public class SplashScreen extends JWindow {
         panel.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220), 1));
 
         // --- AQUÍ ESTÁ LA LÍNEA DEL LOGO ---
-        URL imgUrl = getClass().getResource("/Logo_Boxfire.jpg");
+        URL imgUrl = getClass().getResource("/Logo_Boxfire.JPG");
+
 
         if (imgUrl != null) {
             ImageIcon icon = new ImageIcon(imgUrl);

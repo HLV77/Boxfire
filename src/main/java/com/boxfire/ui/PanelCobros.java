@@ -148,8 +148,12 @@ public class PanelCobros extends JPanel {
             if (rsP.next()) {
                 double pagado = rsP.getDouble("cuota_pagada");
                 String metodo = rsP.getString("metodo_pago");
-                String inicial = "";
 
+                // Si la cuota es 0, es un regalo
+                if (pagado == 0) return "REGALO ✔";
+
+                // Si tiene precio, buscamos la inicial del método (E, T, B, D)
+                String inicial = "";
                 if (metodo != null) {
                     if (metodo.equalsIgnoreCase("Efectivo")) inicial = "E";
                     else if (metodo.equalsIgnoreCase("Tarjeta")) inicial = "T";
@@ -157,9 +161,10 @@ public class PanelCobros extends JPanel {
                     else if (metodo.equalsIgnoreCase("Domiciliación")) inicial = "D";
                 }
 
-                if (pagado == 0) return "REGALO ✔";
+                // Retorna el precio individual + inicial + check
                 return pagado + "€ [" + inicial + "] ✔";
             }
+
         } catch (SQLException e) { e.printStackTrace(); }
 
         // 2. Si no hay pago, comprobamos fechas de ALTA y BAJA
@@ -259,7 +264,8 @@ public class PanelCobros extends JPanel {
 
         if (result == JOptionPane.OK_OPTION) {
             try (Connection conn = ConexionDB.conectar()) {
-                double importeTotal = Double.parseDouble(txtImporte.getText().replace(",", "."));
+                // Ahora tratamos este importe como el PRECIO DE UN MES
+                double precioMensual = Double.parseDouble(txtImporte.getText().replace(",", "."));
                 int mesesRegalo = Integer.parseInt(txtRegalo.getText().trim());
                 String met = (String) comboMetodo.getSelectedItem();
 
@@ -271,16 +277,25 @@ public class PanelCobros extends JPanel {
                 };
 
                 java.time.LocalDate fecha = java.time.LocalDate.of(anio, mesNum, 1);
+
                 for (int i = 0; i < mesesPack; i++) {
-                    double cuota = (i == 0) ? importeTotal : 0.0;
-                    if (i >= (mesesPack - mesesRegalo)) cuota = 0.0;
+                    double cuota;
+
+                    // Si el mes actual es de regalo (está al final del pack)
+                    // Ejemplo: Pack 3 meses, 1 regalo -> i=0 (paga), i=1 (paga), i=2 (regalo)
+                    if (mesesRegalo > 0 && i >= (mesesPack - mesesRegalo)) {
+                        cuota = 0.0;
+                    } else {
+                        // Se guarda el precio mensual íntegro en cada mes de pago
+                        cuota = precioMensual;
+                    }
+
                     guardarPagoEnBD(conn, id, fecha.getMonthValue(), fecha.getYear(), cuota, met);
                     fecha = fecha.plusMonths(1);
                 }
 
-                cargarDatos(); // Refresca la tabla del panel
+                cargarDatos();
 
-                // ACTUALIZAR HEADER (Suma de arriba)
                 Window win = SwingUtilities.getWindowAncestor(this);
                 if (win instanceof VentanaPrincipal) {
                     ((VentanaPrincipal) win).actualizarContador();
@@ -289,7 +304,9 @@ public class PanelCobros extends JPanel {
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error en los datos introducidos.");
             }
+
         }
+
     }
 
 
