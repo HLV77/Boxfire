@@ -133,7 +133,7 @@ public class PanelListadoSocios extends JPanel {
 
         // 1. Creamos las listas de opciones
         String[] precios = {"45", "50", "55", "60", "65", "70", "75", "80", "85", "90"};
-        String[] opcionesPago = {"Efectivo", "Tarjeta", "Domiciliación", "Bizum"};
+        String[] opcionesPago = {"Efectivo/Tarjeta/Bizum", "Domiciliación"};
 
                 // 2. Creamos los componentes desplegables
         JComboBox<String> comboTarifaTab = new JComboBox<>(precios);
@@ -144,14 +144,8 @@ public class PanelListadoSocios extends JPanel {
         comboTarifaTab.setBackground(Color.WHITE);
         comboPago.setBackground(Color.WHITE);
 
-
-        // 3. Asignamos cada desplegable a su columna
-        tabla.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(comboTarifaTab));    // Tarifa
-        tabla.getColumnModel().getColumn(6).setCellEditor(new DefaultCellEditor(comboPago));        // F. Pago
-
-
-        // Columna 6 es Forma de Pago
-        tabla.getColumnModel().getColumn(6).setCellEditor(new DefaultCellEditor(comboPago));
+        tabla.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(comboTarifaTab)); // Tarifa
+        tabla.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(comboPago));       // F. Pago
 
 
         // Detectar doble clic para editar
@@ -363,7 +357,11 @@ public class PanelListadoSocios extends JPanel {
 
             // Aplicar con margen
             tabla.getColumnModel().getColumn(column).setPreferredWidth(anchoMaximo + 20);
+            tabla.getColumnModel().getColumn(4).setPreferredWidth(160);
         }
+
+
+
     }
 
 
@@ -393,7 +391,7 @@ public class PanelListadoSocios extends JPanel {
                 nuevoValor = (boolean) nuevoValor ? 1 : 0;
                 break;
             case 3: nombreColumna = "tarifa"; break;
-            case 4: nombreColumna = "forma_pago"; break; // Ahora F. Pago es la columna 4
+            case 4: nombreColumna = "forma_pago"; break; // <--- ESTA ES LA CLAVE
             case 5: nombreColumna = "dni"; break;
             case 6: nombreColumna = "domicilio"; break;
             case 7: nombreColumna = "fecha_nacimiento"; break;
@@ -401,20 +399,20 @@ public class PanelListadoSocios extends JPanel {
             case 9: nombreColumna = "email"; break;
         }
 
-
         if (!nombreColumna.isEmpty()) {
             String sql = "UPDATE socios SET " + nombreColumna + " = ? WHERE num_socio = ?";
             try (Connection conn = ConexionDB.conectar();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
                 pstmt.setObject(1, nuevoValor);
                 pstmt.setInt(2, numSocio);
                 pstmt.executeUpdate();
+                System.out.println("✅ Actualizado: " + nombreColumna);
             } catch (SQLException ex) {
-                System.out.println("Error al actualizar " + nombreColumna + ": " + ex.getMessage());
+                ex.printStackTrace();
             }
         }
     }
+
 
 
     private void actualizarEstadoSocioEnBD(int numSocio, boolean activo) {
