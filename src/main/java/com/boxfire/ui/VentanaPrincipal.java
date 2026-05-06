@@ -95,7 +95,7 @@ public class VentanaPrincipal extends JFrame {
         sidebar.setPreferredSize(new Dimension(220, 800));
         sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.LIGHT_GRAY));
 
-        String[] opciones = {"Alta de Socio", "Listado de Socios", "Cobros Mensuales", "Control de Impagos" , "Estadisticas"};
+        String[] opciones = {"Alta de Socio", "Listado de Socios", "Cobros Mensuales", "Control de Impagos" , "Estadisticas" , "Configuración"};
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
 
         for (String opcion : opciones) {
@@ -163,11 +163,12 @@ public class VentanaPrincipal extends JFrame {
                 PanelImpagos pi = new PanelImpagos();
                 pi.cargarImpagos();
                 actualizarPanelCentral(pi);
-            } else if (texto.equals("Estadisticas")) { // <--- AÑADE ESTO
+            } else if (texto.equals("Estadisticas")) {
                 actualizarPanelCentral(new PanelEstadisticas());
+            } else if (texto.equals("Configuración")) {
+                actualizarPanelCentral(new PanelConfiguracion());
             }
-        });
-
+        }); // Esta es la llave que cierra el ActionListener
         return btn;
     }
 

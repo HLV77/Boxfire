@@ -1,14 +1,8 @@
 package com.boxfire.db;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.ResultSet;
-import java.sql.PreparedStatement;
+import java.sql.*;
 import java.time.LocalDate;
-
-
+import javax.swing.JComboBox; // <--- Faltaba este import para el combo
 
 public class ConexionDB {
     private static final String URL = "jdbc:sqlite:boxfire.db";
@@ -31,7 +25,7 @@ public class ConexionDB {
                 "domicilio TEXT, " +
                 "fecha_nacimiento TEXT, " +
                 "telefono TEXT, " +
-                "email TEXT, " +            // <--- Aquí estaba el error
+                "email TEXT, " +
                 "tarifa REAL, " +
                 "periodicidad TEXT, " +
                 "descuento REAL, " +
@@ -49,47 +43,50 @@ public class ConexionDB {
                 "anio INTEGER, " +
                 "cuota_pagada REAL, " +
                 "estado_pago INTEGER, " +
+                "metodo_pago TEXT, " + // Añadido aquí directamente
                 "FOREIGN KEY(num_socio) REFERENCES socios(num_socio)" +
                 ");";
-        try (Connection conn = conectar()) {
-            Statement stmt = conn.createStatement();
-            stmt.execute(sqlSocios);
-            stmt.execute(sqlPagos);
 
-            // Añade esta línea aquí abajo, justo después de crear las tablas
-            try {
-                stmt.execute("ALTER TABLE pagos ADD COLUMN metodo_pago TEXT");
-            } catch (SQLException e) {
-                // Ignoramos el error si la columna ya existe
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-
+        String sqlConfigTarifas = "CREATE TABLE IF NOT EXISTS configuracion_tarifas (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "valor TEXT NOT NULL);";
 
         try (Connection conn = conectar();
              Statement stmt = conn.createStatement()) {
+
+            // 1. Crear las tablas básicas
             stmt.execute(sqlSocios);
             stmt.execute(sqlPagos);
+            stmt.execute(sqlConfigTarifas);
+
+            // 2. Insertar tarifas por defecto si está vacía
+            ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion_tarifas");
+            if (rs.next() && rs.getInt(1) == 0) {
+                stmt.execute("INSERT INTO configuracion_tarifas (valor) VALUES ('45'), ('50'), ('55'), ('60')");
+            }
+
+            // 3. Asegurar columna metodo_pago por si la tabla ya existía de antes
+            try {
+                stmt.execute("ALTER TABLE pagos ADD COLUMN metodo_pago TEXT");
+            } catch (SQLException e) {
+                // Ya existe, no hacemos nada
+            }
+
+            System.out.println("✅ Base de datos actualizada y lista.");
+
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("❌ Error al crear tablas: " + e.getMessage());
         }
     }
 
-
     public static void procesarDomiciliacionesAuto() {
         LocalDate hoy = LocalDate.now();
-
-        // Si es día 8 o más
         if (hoy.getDayOfMonth() >= 8) {
             int mes = hoy.getMonthValue();
             int anio = hoy.getYear();
 
-            // SQL AJUSTADO: Ahora busca por tu columna 'forma_pago'
-            String sql = "INSERT INTO pagos (num_socio, mes, anio, cuota_pagada, estado_pago) " +
-                    "SELECT num_socio, ?, ?, tarifa, 1 FROM socios " +
+            String sql = "INSERT INTO pagos (num_socio, mes, anio, cuota_pagada, estado_pago, metodo_pago) " +
+                    "SELECT num_socio, ?, ?, tarifa, 1, 'Domiciliación' FROM socios " +
                     "WHERE esta_activo = 1 AND forma_pago = 'Domiciliación' " +
                     "AND num_socio NOT IN (SELECT num_socio FROM pagos WHERE mes = ? AND anio = ?)";
 
@@ -99,37 +96,23 @@ public class ConexionDB {
                 pstmt.setInt(2, anio);
                 pstmt.setInt(3, mes);
                 pstmt.setInt(4, anio);
-
                 int filas = pstmt.executeUpdate();
-                if (filas > 0) {
-                    System.out.println("✅ Se han procesado " + filas + " cobros por domiciliación.");
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+                if (filas > 0) System.out.println("✅ Se han procesado " + filas + " domiciliaciones.");
+            } catch (SQLException e) { e.printStackTrace(); }
         }
     }
 
-
-
     public static int obtenerTotalSociosActivos() {
         String sql = "SELECT COUNT(*) FROM socios WHERE esta_activo = 1";
-        try (Connection conn = conectar();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            System.out.println("Error al contar socios: " + e.getMessage());
-        }
+        try (Connection conn = conectar(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) return rs.getInt(1);
+        } catch (SQLException e) { e.printStackTrace(); }
         return 0;
     }
 
     public static double obtenerIngresosMesActual() {
         int mes = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1;
         int anio = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
-        // Suma TODAS las cuotas sin importar si es Efectivo, Tarjeta, Banco, etc.
         return obtenerSuma("SELECT SUM(cuota_pagada) FROM pagos WHERE mes = ? AND anio = ?", mes, anio);
     }
 
@@ -138,8 +121,6 @@ public class ConexionDB {
         return obtenerSuma("SELECT SUM(cuota_pagada) FROM pagos WHERE anio = ?", anio, -1);
     }
 
-
-    // Método auxiliar para evitar repetir código
     private static double obtenerSuma(String sql, int p1, int p2) {
         try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, p1);
@@ -150,6 +131,14 @@ public class ConexionDB {
         return 0;
     }
 
-
-
+    public static void rellenarComboTarifas(JComboBox<String> combo) {
+        combo.removeAllItems();
+        String sql = "SELECT valor FROM configuracion_tarifas ORDER BY CAST(valor AS INTEGER) ASC";
+        try (Connection conn = conectar(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) combo.addItem(rs.getString("valor"));
+        } catch (SQLException e) {
+            System.out.println("Error al rellenar combo: " + e.getMessage());
+            combo.addItem("45");
+        }
+    }
 }

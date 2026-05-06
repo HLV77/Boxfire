@@ -5,8 +5,10 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import java.awt.*;
-import java.time.format.DateTimeFormatter;
-import java.time.format.ResolverStyle;
+import com.boxfire.db.ConexionDB;
+
+
+
 
 public class PanelSocio extends JPanel {
     private JTextField txtNombre, txtDni, txtDomicilio, txtTelefono, txtEmail;
@@ -69,25 +71,38 @@ public class PanelSocio extends JPanel {
         agregarCampo(card, "C. Electrónico:", txtEmail = new JTextField(), 5, gbc, labelFont, bordeNegro, 350, alturaFija);
 
 
-        // Tarifa alineada con €
+        // --- SECCIÓN TARIFA (Corregida sin errores) ---
+        comboTarifa = crearComboBlanco(new String[]{}, (LineBorder) BorderFactory.createLineBorder(Color.GRAY));
+        comboTarifa.removeAllItems();
+        comboTarifa.addItem("");
+        com.boxfire.db.ConexionDB.rellenarComboTarifas(comboTarifa);
+
+        // 1. Texto "Tarifa:" sin negrita
+        JLabel lblTarifaTexto = new JLabel("Tarifa:");
+// Cambiamos a Font.PLAIN y el tamaño (ej: 16)
+        lblTarifaTexto.setFont(new Font("Segoe UI", Font.BOLD, 16));
         gbc.gridy = 6;
         gbc.gridx = 0;
-        card.add(new JLabel("Tarifa:"), gbc);
+        card.add(lblTarifaTexto, gbc);
 
-        // Creamos un panel con ancho fijo para que no se desplace
-        JPanel pnlTarifaWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+
+        // 2. Contenedor para el combo largo + €
+        JPanel pnlTarifaWrap = new JPanel(new BorderLayout(5, 0));
         pnlTarifaWrap.setOpaque(false);
-        pnlTarifaWrap.setPreferredSize(new Dimension(150, alturaFija)); // Ancho suficiente para combo + €
+        pnlTarifaWrap.setPreferredSize(new Dimension(80, 20)); // Altura de 30 para que se vea bien
 
-        String[] precios = {"", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90"};
-        comboTarifa = crearComboBlanco(precios, bordeNegro);
-        comboTarifa.setPreferredSize(new Dimension(110, alturaFija)); // Mismo ancho que el DNI
-
-        pnlTarifaWrap.add(comboTarifa);
-        pnlTarifaWrap.add(new JLabel("  €"));
+        // 2. Símbolo " €" sin negrita
+        JLabel lblEuro = new JLabel(" €");
+        lblEuro.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        pnlTarifaWrap.add(lblEuro, BorderLayout.EAST);
+        pnlTarifaWrap.add(comboTarifa, BorderLayout.CENTER);
+        pnlTarifaWrap.add(lblEuro, BorderLayout.EAST);
 
         gbc.gridx = 1;
         card.add(pnlTarifaWrap, gbc);
+        // --- FIN SECCIÓN TARIFA ---
+
+
 
 
         // Forma de Pago
