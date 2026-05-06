@@ -218,43 +218,81 @@ public class PanelCobros extends JPanel {
         String valorActual = modelo.getValueAt(fila, col).toString();
 
         if (valorActual.isEmpty()) return;
+
+        // --- CASO A: ANULAR PAGO EXISTENTE ---
         if (valorActual.contains("✔")) {
-            if (JOptionPane.showConfirmDialog(this, "¿Anular pago?", "Anular", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            int borrar = JOptionPane.showConfirmDialog(this, "¿Anular pago?", "Anular", JOptionPane.YES_NO_OPTION);
+            if (borrar == JOptionPane.YES_OPTION) {
                 eliminarPagoDeBD(id, mesNum, anio);
-                cargarDatos();
+                cargarDatos(); // Refresca la tabla del panel
+
+                // ACTUALIZAR HEADER (Suma de arriba)
+                Window win = SwingUtilities.getWindowAncestor(this);
+                if (win instanceof VentanaPrincipal) {
+                    ((VentanaPrincipal) win).actualizarContador();
+                }
             }
             return;
         }
 
-        JPanel panel = new JPanel(new GridLayout(4, 2, 5, 5));
-        JTextField txtImp = new JTextField("45.0");
-        JComboBox<String> cbMeses = new JComboBox<>(new String[]{"1 Mes", "3 Meses", "6 Meses", "12 Meses"});
-        JTextField txtReg = new JTextField("0");
-        JComboBox<String> cbMet = new JComboBox<>(new String[]{"Efectivo", "Tarjeta", "Bizum", "Domiciliación"});
+        // --- CASO B: REGISTRAR NUEVO PAGO ---
+        String tarifaDeCelda = valorActual.replace("D -", "").replace("€", "").trim().replace(",", ".");
+        double tarifaSugerida = 0;
+        try {
+            tarifaSugerida = Double.parseDouble(tarifaDeCelda);
+        } catch (NumberFormatException e) {
+            tarifaSugerida = 0;
+        }
 
-        panel.add(new JLabel("Importe:")); panel.add(txtImp);
-        panel.add(new JLabel("Periodo:")); panel.add(cbMeses);
-        panel.add(new JLabel("Regalo:")); panel.add(txtReg);
-        panel.add(new JLabel("Método:")); panel.add(cbMet);
+        JPanel panelCobro = new JPanel(new GridLayout(4, 2, 10, 10));
+        JTextField txtImporte = new JTextField(String.valueOf(tarifaSugerida));
+        JComboBox<String> comboMesesPaga = new JComboBox<>(new String[]{"1 Mes", "3 Meses", "6 Meses", "12 Meses"});
+        JTextField txtRegalo = new JTextField("0");
+        JComboBox<String> comboMetodo = new JComboBox<>(new String[]{"Efectivo", "Tarjeta", "Bizum", "Domiciliación"});
 
-        if (JOptionPane.showConfirmDialog(this, panel, "Cobro - " + nombre, JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
+        panelCobro.add(new JLabel("Importe (€):")); panelCobro.add(txtImporte);
+        panelCobro.add(new JLabel("Periodo:")); panelCobro.add(comboMesesPaga);
+        panelCobro.add(new JLabel("Regalo:")); panelCobro.add(txtRegalo);
+        panelCobro.add(new JLabel("Método:")); panelCobro.add(comboMetodo);
+
+        int result = JOptionPane.showConfirmDialog(this, panelCobro, "Cobro - " + nombre, JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
             try (Connection conn = ConexionDB.conectar()) {
-                double total = Double.parseDouble(txtImp.getText().replace(",", "."));
-                int reg = Integer.parseInt(txtReg.getText().trim());
-                String met = (String) cbMet.getSelectedItem();
-                int pack = switch (cbMeses.getSelectedIndex()) { case 1 -> 3; case 2 -> 6; case 3 -> 12; default -> 1; };
+                double importeTotal = Double.parseDouble(txtImporte.getText().replace(",", "."));
+                int mesesRegalo = Integer.parseInt(txtRegalo.getText().trim());
+                String met = (String) comboMetodo.getSelectedItem();
 
-                java.time.LocalDate date = java.time.LocalDate.of(anio, mesNum, 1);
-                for (int i = 0; i < pack; i++) {
-                    double cuota = (i == 0) ? total : 0.0;
-                    if (i >= (pack - reg)) cuota = 0.0;
-                    guardarPagoEnBD(conn, id, date.getMonthValue(), date.getYear(), cuota, met);
-                    date = date.plusMonths(1);
+                int mesesPack = switch (comboMesesPaga.getSelectedIndex()) {
+                    case 1 -> 3;
+                    case 2 -> 6;
+                    case 3 -> 12;
+                    default -> 1;
+                };
+
+                java.time.LocalDate fecha = java.time.LocalDate.of(anio, mesNum, 1);
+                for (int i = 0; i < mesesPack; i++) {
+                    double cuota = (i == 0) ? importeTotal : 0.0;
+                    if (i >= (mesesPack - mesesRegalo)) cuota = 0.0;
+                    guardarPagoEnBD(conn, id, fecha.getMonthValue(), fecha.getYear(), cuota, met);
+                    fecha = fecha.plusMonths(1);
                 }
-                cargarDatos();
-            } catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error en los datos."); }
+
+                cargarDatos(); // Refresca la tabla del panel
+
+                // ACTUALIZAR HEADER (Suma de arriba)
+                Window win = SwingUtilities.getWindowAncestor(this);
+                if (win instanceof VentanaPrincipal) {
+                    ((VentanaPrincipal) win).actualizarContador();
+                }
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error en los datos introducidos.");
+            }
         }
     }
+
+
 
     private void eliminarPagoDeBD(int id, int mes, int anio) {
         String sql = "DELETE FROM pagos WHERE num_socio=? AND mes=? AND anio=?";

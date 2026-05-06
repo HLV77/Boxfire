@@ -126,4 +126,30 @@ public class ConexionDB {
         return 0;
     }
 
+    public static double obtenerIngresosMesActual() {
+        int mes = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1;
+        int anio = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+        // Suma TODAS las cuotas sin importar si es Efectivo, Tarjeta, Banco, etc.
+        return obtenerSuma("SELECT SUM(cuota_pagada) FROM pagos WHERE mes = ? AND anio = ?", mes, anio);
+    }
+
+    public static double obtenerIngresosAnioActual() {
+        int anio = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR);
+        return obtenerSuma("SELECT SUM(cuota_pagada) FROM pagos WHERE anio = ?", anio, -1);
+    }
+
+
+    // Método auxiliar para evitar repetir código
+    private static double obtenerSuma(String sql, int p1, int p2) {
+        try (Connection conn = conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, p1);
+            if (p2 != -1) pstmt.setInt(2, p2);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) return rs.getDouble(1);
+        } catch (SQLException e) { e.printStackTrace(); }
+        return 0;
+    }
+
+
+
 }

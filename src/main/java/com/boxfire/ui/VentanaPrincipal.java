@@ -7,12 +7,17 @@ import java.net.URL;
 public class VentanaPrincipal extends JFrame {
 
 
-        private JLabel lblSocios; // <--- Ponla aquí arriba
-        // ... el resto de tus variables
 
-        private JButton botonSeleccionado = null;
+    private JLabel lblSocios;
+    private JLabel lblIngresosMes;
+    private JLabel lblIngresosAnio; // <--- Nueva variable
+
+
+
+    private JButton botonSeleccionado = null;
     private final Color AMARILLO_BOXFIRE = new Color(221, 216, 60);
     private final Color GRIS_FONDO = new Color(242, 242, 242);
+
 
 
 
@@ -48,23 +53,38 @@ public class VentanaPrincipal extends JFrame {
         header.add(panelIzquierdo, BorderLayout.WEST);
 
 
-        // --- CENTRO: Marcador de Socios ---
+        // --- CENTRO: Contador de Socios ---
         JPanel panelCentralContador = new JPanel(new GridBagLayout());
         panelCentralContador.setOpaque(false);
 
-        // Llamamos a la base de datos para que nos de el número real al empezar
-        int total = com.boxfire.db.ConexionDB.obtenerTotalSociosActivos();
-        lblSocios = new JLabel("Nº de socios activos (" + total + ")");
-
+        lblSocios = new JLabel("Socios activos: " + com.boxfire.db.ConexionDB.obtenerTotalSociosActivos());
         lblSocios.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        lblSocios.setForeground(new Color(50, 50, 50));
         panelCentralContador.add(lblSocios);
         header.add(panelCentralContador, BorderLayout.CENTER);
 
-        // --- DERECHA: Espacio ---
-        JPanel panelDerecho = new JPanel();
-        panelDerecho.setOpaque(false);
-        panelDerecho.setPreferredSize(new Dimension(300, 70));
-        header.add(panelDerecho, BorderLayout.EAST);
+// --- DERECHA: Resumen de Caja (Mes y Año) ---
+        JPanel panelDerechoIngresos = new JPanel(new GridLayout(2, 1));
+        panelDerechoIngresos.setOpaque(false);
+        panelDerechoIngresos.setPreferredSize(new Dimension(250, 70));
+        panelDerechoIngresos.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 20));
+
+        String[] meses = {"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
+        int mesActual = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH);
+
+        lblIngresosMes = new JLabel(meses[mesActual] + ": " + String.format("%.2f €", com.boxfire.db.ConexionDB.obtenerIngresosMesActual()), SwingConstants.RIGHT);
+        lblIngresosMes.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblIngresosMes.setForeground(new Color(39, 174, 96)); // Verde
+
+        lblIngresosAnio = new JLabel("Total Año: " + String.format("%.2f €", com.boxfire.db.ConexionDB.obtenerIngresosAnioActual()), SwingConstants.RIGHT);
+        lblIngresosAnio.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+        lblIngresosAnio.setForeground(new Color(41, 128, 185)); // Azul
+
+        panelDerechoIngresos.add(lblIngresosMes);
+        panelDerechoIngresos.add(lblIngresosAnio);
+        header.add(panelDerechoIngresos, BorderLayout.EAST);
+
 
         add(header, BorderLayout.NORTH);
 
@@ -75,7 +95,7 @@ public class VentanaPrincipal extends JFrame {
         sidebar.setPreferredSize(new Dimension(220, 800));
         sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.LIGHT_GRAY));
 
-        String[] opciones = {"Alta de Socio", "Listado de Socios", "Cobros Mensuales", "Control de Impagos"};
+        String[] opciones = {"Alta de Socio", "Listado de Socios", "Cobros Mensuales", "Control de Impagos" , "Estadisticas"};
         sidebar.add(Box.createRigidArea(new Dimension(0, 15)));
 
         for (String opcion : opciones) {
@@ -140,13 +160,14 @@ public class VentanaPrincipal extends JFrame {
             } else if (texto.equals("Cobros Mensuales")) {
                 actualizarPanelCentral(new PanelCobros());
             } else if (texto.equals("Control de Impagos")) {
-                PanelImpagos pi = new PanelImpagos(); // 1. Creamos el panel
-                pi.cargarImpagos();                   // 2. Cargamos los datos (ESTO ES LO QUE FALTABA)
-                actualizarPanelCentral(pi);           // 3. Lo mostramos
+                PanelImpagos pi = new PanelImpagos();
+                pi.cargarImpagos();
+                actualizarPanelCentral(pi);
+            } else if (texto.equals("Estadisticas")) { // <--- AÑADE ESTO
+                actualizarPanelCentral(new PanelEstadisticas());
             }
-
-
         });
+
         return btn;
     }
 
@@ -185,9 +206,22 @@ public class VentanaPrincipal extends JFrame {
     }
 
     public void actualizarContador() {
+        // 1. Refrescar Socios
         int total = com.boxfire.db.ConexionDB.obtenerTotalSociosActivos();
-        lblSocios.setText("Nº de socios activos (" + total + ")");
+        lblSocios.setText("Socios activos: " + total);
+
+        // 2. Refrescar Mes
+        double ingresosMes = com.boxfire.db.ConexionDB.obtenerIngresosMesActual();
+        int mesIdx = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH);
+        String[] meses = {"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
+        lblIngresosMes.setText(meses[mesIdx] + ": " + String.format("%.2f €", ingresosMes));
+
+        // 3. Refrescar Año
+        double ingresosAnio = com.boxfire.db.ConexionDB.obtenerIngresosAnioActual();
+        lblIngresosAnio.setText("Total Año: " + String.format("%.2f €", ingresosAnio));
     }
+
 
 
 }
