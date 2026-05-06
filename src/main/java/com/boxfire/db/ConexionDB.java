@@ -51,6 +51,23 @@ public class ConexionDB {
                 "estado_pago INTEGER, " +
                 "FOREIGN KEY(num_socio) REFERENCES socios(num_socio)" +
                 ");";
+        try (Connection conn = conectar()) {
+            Statement stmt = conn.createStatement();
+            stmt.execute(sqlSocios);
+            stmt.execute(sqlPagos);
+
+            // Añade esta línea aquí abajo, justo después de crear las tablas
+            try {
+                stmt.execute("ALTER TABLE pagos ADD COLUMN metodo_pago TEXT");
+            } catch (SQLException e) {
+                // Ignoramos el error si la columna ya existe
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+
 
         try (Connection conn = conectar();
              Statement stmt = conn.createStatement()) {
