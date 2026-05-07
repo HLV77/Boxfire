@@ -26,39 +26,23 @@ public class ConexionDB {
     }
 
     public static void crearTablas() {
+        // 1. Definición de las tablas (Ya las tienes)
         String sqlSocios = "CREATE TABLE IF NOT EXISTS socios (" +
                 "num_socio INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "nombre TEXT, " +
-                "dni TEXT, " +
-                "domicilio TEXT, " +
-                "fecha_nacimiento TEXT, " +
-                "telefono TEXT, " +
-                "email TEXT, " +
-                "tarifa REAL, " +
-                "periodicidad TEXT, " +
-                "descuento REAL, " +
-                "forma_pago TEXT, " +
-                "esta_activo INTEGER DEFAULT 1, " +
-                "fecha_alta TEXT, " +
-                "fecha_baja TEXT, " +
-                "es_domiciliado INTEGER DEFAULT 0" +
-                ");";
+                "nombre TEXT, dni TEXT, domicilio TEXT, fecha_nacimiento TEXT, " +
+                "telefono TEXT, email TEXT, tarifa REAL, periodicidad TEXT, " +
+                "descuento REAL, forma_pago TEXT, esta_activo INTEGER DEFAULT 1, " +
+                "fecha_alta TEXT, fecha_baja TEXT, es_domiciliado INTEGER DEFAULT 0);";
 
         String sqlPagos = "CREATE TABLE IF NOT EXISTS pagos (" +
-                "id_pago INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "num_socio INTEGER, " +
-                "mes INTEGER, " +
-                "anio INTEGER, " +
-                "cuota_pagada REAL, " +
-                "estado_pago INTEGER, " +
-                "metodo_pago TEXT, " +
-                "FOREIGN KEY(num_socio) REFERENCES socios(num_socio)" +
-                ");";
+                "id_pago INTEGER PRIMARY KEY AUTOINCREMENT, num_socio INTEGER, " +
+                "mes INTEGER, anio INTEGER, cuota_pagada REAL, estado_pago INTEGER, " +
+                "metodo_pago TEXT, FOREIGN KEY(num_socio) REFERENCES socios(num_socio));";
 
         String sqlConfigTarifas = "CREATE TABLE IF NOT EXISTS configuracion_tarifas (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "valor TEXT NOT NULL);";
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, valor TEXT NOT NULL);";
 
+        // 2. Ejecución y Actualización de columnas
         try (Connection conn = conectar();
              Statement stmt = conn.createStatement()) {
 
@@ -66,33 +50,33 @@ public class ConexionDB {
             stmt.execute(sqlPagos);
             stmt.execute(sqlConfigTarifas);
 
-            // Añade esto debajo de stmt.execute(sqlConfigTarifas);
+            // --- ACTUALIZACIONES DE COLUMNAS (Para socios antiguos o nuevos campos) ---
             try {
                 stmt.execute("ALTER TABLE socios ADD COLUMN num_cuenta TEXT");
+                System.out.println("✅ Columna num_cuenta verificada.");
             } catch (SQLException e) {
-                // Si ya existe la columna, no pasa nada, el programa sigue
+                // Ya existe, no hacemos nada
             }
 
+            try {
+                stmt.execute("ALTER TABLE pagos ADD COLUMN metodo_pago TEXT");
+            } catch (SQLException e) {
+                // Ya existe, no hacemos nada
+            }
 
-            // Insertar tarifas por defecto solo si la tabla está vacía
+            // 3. Tarifas por defecto
             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion_tarifas");
             if (rs.next() && rs.getInt(1) == 0) {
                 stmt.execute("INSERT INTO configuracion_tarifas (valor) VALUES ('45'), ('50'), ('55'), ('60')");
             }
 
-            // Asegurar columna metodo_pago por compatibilidad
-            try {
-                stmt.execute("ALTER TABLE pagos ADD COLUMN metodo_pago TEXT");
-            } catch (SQLException e) {
-                // Ya existe la columna
-            }
-
-            System.out.println("✅ Base de datos en C:/Boxfire lista.");
+            System.out.println("✅ Base de datos lista y actualizada.");
 
         } catch (SQLException e) {
-            System.out.println("❌ Error al crear tablas: " + e.getMessage());
+            System.out.println("❌ Error al crear/actualizar tablas: " + e.getMessage());
         }
     }
+
 
     public static void procesarDomiciliacionesAuto() {
         LocalDate hoy = LocalDate.now();

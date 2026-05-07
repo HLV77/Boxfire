@@ -222,10 +222,12 @@ public class PanelSocio extends JPanel {
         txtFechaNac.setText("");
         txtTelefono.setText("");
         txtEmail.setText("");
+        txtCuenta.setText(""); // <--- Esta es la línea clave
         comboTarifa.setSelectedIndex(0);
         comboPago.setSelectedIndex(0);
         txtNombre.requestFocus();
     }
+
 
     private JComboBox<String> crearComboBlanco(String[] items, LineBorder borde) {
         JComboBox<String> combo = new JComboBox<>(items);

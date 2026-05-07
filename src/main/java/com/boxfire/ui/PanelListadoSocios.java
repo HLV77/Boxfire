@@ -44,11 +44,11 @@ public class PanelListadoSocios extends JPanel {
 
 
 
-        // 2. CONFIGURACIÓN DE COLUMNAS (Con unidades en el título)
         String[] columnas = {
                 "Nº", "Nombre", "Estado", "Tarifa (€)", "F. Pago",
-                "DNI", "Domicilio", "F. Nacimiento", "Teléfono", "E-mail"
+                "DNI", "Domicilio", "F. Nacimiento", "Teléfono", "E-mail", "Nº Cuenta" // <--- Añadida
         };
+
 
 
 
@@ -311,22 +311,22 @@ public class PanelListadoSocios extends JPanel {
              ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                Object[] fila = new Object[10]; // Ahora son 10 columnas en lugar de 12
+                Object[] fila = new Object[11]; // Cambiado de 10 a 11
                 fila[0] = rs.getInt("num_socio");
                 fila[1] = rs.getString("nombre");
                 fila[2] = rs.getInt("esta_activo") == 1;
                 fila[3] = String.valueOf((int)rs.getDouble("tarifa"));
-
-                // Saltamos periodicidad y descuento y vamos directos a Forma de Pago
                 fila[4] = rs.getString("forma_pago");
                 fila[5] = rs.getString("dni");
                 fila[6] = rs.getString("domicilio");
                 fila[7] = rs.getString("fecha_nacimiento");
                 fila[8] = rs.getString("telefono");
                 fila[9] = rs.getString("email");
+                fila[10] = rs.getString("num_cuenta"); // <--- Añadido el dato de la BD
 
                 modelo.addRow(fila);
             }
+
 
 
             autoAjustarColumnas();
