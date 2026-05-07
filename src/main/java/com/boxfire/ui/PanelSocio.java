@@ -79,28 +79,33 @@ public class PanelSocio extends JPanel {
         agregarCampo(card, "C. Electrónico:", txtEmail = new JTextField(), 5, gbc, labelFontGeneral, bordeNegro, 350, alturaFija);
 
         // --- SECCIÓN TARIFA ---
-        comboTarifa = crearComboBlanco(new String[]{}, (LineBorder) BorderFactory.createLineBorder(Color.GRAY));
-        comboTarifa.removeAllItems();
-        comboTarifa.addItem("");
-        com.boxfire.db.ConexionDB.rellenarComboTarifas(comboTarifa);
-
         JLabel lblTarifaTexto = new JLabel("Tarifa:");
-        lblTarifaTexto.setFont(labelFontGeneral); // Modificado a estilo F. Pago
+        lblTarifaTexto.setFont(labelFontGeneral);
         gbc.gridy = 6;
         gbc.gridx = 0;
-        card.add(lblTarifaTexto, gbc);
+        card.add(lblTarifaTexto, gbc); // Añadimos la etiqueta a la fila 6
 
+        // Creamos y configuramos el combo
+        comboTarifa = crearComboBlanco(new String[]{}, (LineBorder) BorderFactory.createLineBorder(Color.GRAY));
+        comboTarifa.removeAllItems();
+        comboTarifa.addItem(""); // Ítem vacío
+        com.boxfire.db.ConexionDB.rellenarComboTarifas(comboTarifa);
+        comboTarifa.setSelectedIndex(0);
+
+        // Panel para el combo y el símbolo €
         JPanel pnlTarifaWrap = new JPanel(new BorderLayout(5, 0));
         pnlTarifaWrap.setOpaque(false);
-        pnlTarifaWrap.setPreferredSize(new Dimension(80, 20));
+        pnlTarifaWrap.setPreferredSize(new Dimension(100, alturaFija));
 
         JLabel lblEuro = new JLabel(" €");
         lblEuro.setFont(new Font("Segoe UI", Font.BOLD, 16));
         pnlTarifaWrap.add(comboTarifa, BorderLayout.CENTER);
         pnlTarifaWrap.add(lblEuro, BorderLayout.EAST);
 
+        gbc.gridy = 6;
         gbc.gridx = 1;
-        card.add(pnlTarifaWrap, gbc);
+        card.add(pnlTarifaWrap, gbc); // <--- ESTO ES LO QUE FALTABA: Añadir el contenedor a la fila 6
+
 
         // --- FORMA DE PAGO ---
         gbc.gridy = 9;

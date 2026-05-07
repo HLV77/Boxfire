@@ -139,7 +139,6 @@ public class ConexionDB {
     }
 
     public static void rellenarComboTarifas(JComboBox<String> combo) {
-        combo.removeAllItems();
         String sql = "SELECT valor FROM configuracion_tarifas ORDER BY CAST(valor AS INTEGER) ASC";
         try (Connection conn = conectar(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) combo.addItem(rs.getString("valor"));
