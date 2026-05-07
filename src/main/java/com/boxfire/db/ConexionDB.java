@@ -2,12 +2,20 @@ package com.boxfire.db;
 
 import java.sql.*;
 import java.time.LocalDate;
-import javax.swing.JComboBox; // <--- Faltaba este import para el combo
+import java.io.File;
+import javax.swing.JComboBox;
 
 public class ConexionDB {
-    private static final String URL = "jdbc:sqlite:boxfire.db";
+    // RUTA FIJA: Fuera de la carpeta del proyecto para que no se borren los datos
+    private static final String URL = "jdbc:sqlite:C:/Boxfire/boxfire.db";
 
     public static Connection conectar() {
+        // Aseguramos que la carpeta C:/Boxfire existe físicamente
+        File carpeta = new File("C:/Boxfire");
+        if (!carpeta.exists()) {
+            carpeta.mkdirs();
+        }
+
         Connection conn = null;
         try {
             conn = DriverManager.getConnection(URL);
@@ -43,7 +51,7 @@ public class ConexionDB {
                 "anio INTEGER, " +
                 "cuota_pagada REAL, " +
                 "estado_pago INTEGER, " +
-                "metodo_pago TEXT, " + // Añadido aquí directamente
+                "metodo_pago TEXT, " +
                 "FOREIGN KEY(num_socio) REFERENCES socios(num_socio)" +
                 ");";
 
@@ -54,25 +62,24 @@ public class ConexionDB {
         try (Connection conn = conectar();
              Statement stmt = conn.createStatement()) {
 
-            // 1. Crear las tablas básicas
             stmt.execute(sqlSocios);
             stmt.execute(sqlPagos);
             stmt.execute(sqlConfigTarifas);
 
-            // 2. Insertar tarifas por defecto si está vacía
+            // Insertar tarifas por defecto solo si la tabla está vacía
             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion_tarifas");
             if (rs.next() && rs.getInt(1) == 0) {
                 stmt.execute("INSERT INTO configuracion_tarifas (valor) VALUES ('45'), ('50'), ('55'), ('60')");
             }
 
-            // 3. Asegurar columna metodo_pago por si la tabla ya existía de antes
+            // Asegurar columna metodo_pago por compatibilidad
             try {
                 stmt.execute("ALTER TABLE pagos ADD COLUMN metodo_pago TEXT");
             } catch (SQLException e) {
-                // Ya existe, no hacemos nada
+                // Ya existe la columna
             }
 
-            System.out.println("✅ Base de datos actualizada y lista.");
+            System.out.println("✅ Base de datos en C:/Boxfire lista.");
 
         } catch (SQLException e) {
             System.out.println("❌ Error al crear tablas: " + e.getMessage());

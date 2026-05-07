@@ -6,16 +6,29 @@ import javax.swing.border.LineBorder;
 import javax.swing.plaf.basic.BasicComboBoxUI;
 import java.awt.*;
 import com.boxfire.db.ConexionDB;
+import java.net.URL;
+
 
 public class PanelSocio extends JPanel {
     private JTextField txtNombre, txtDni, txtDomicilio, txtTelefono, txtEmail;
     private JComboBox<String> comboPeriodicidad, comboPago, comboTarifa;
     private JFormattedTextField txtFechaNac;
     private JComboBox<String> comboDescuento;
+    private Image imagenLogo;
+
 
     public PanelSocio() {
         setLayout(new GridBagLayout());
         setBackground(new Color(245, 245, 245));
+
+        // Carga segura del logo
+        URL imgUrl = getClass().getResource("/Logo_Boxfire.jpg");
+        if (imgUrl == null) imgUrl = getClass().getResource("/Logo_Boxfire.JPG");
+
+        if (imgUrl != null) {
+            this.imagenLogo = new ImageIcon(imgUrl).getImage();
+        }
+
 
         GridBagConstraints gbcPrincipal = new GridBagConstraints();
         gbcPrincipal.gridx = 0;
@@ -240,23 +253,34 @@ public class PanelSocio extends JPanel {
     }
 
     @Override
-    protected void paintChildren(Graphics g) {
-        super.paintChildren(g);
-        java.net.URL imgUrl = getClass().getResource("/Logo_Boxfire.jpg");
-        if (imgUrl != null) {
-            Image img = new ImageIcon(imgUrl).getImage();
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g); // Dibuja el fondo del panel
+
+        if (imagenLogo != null) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int x = getWidth() - 160, y = 30;
-            java.awt.geom.Ellipse2D.Double clip = new java.awt.geom.Ellipse2D.Double(x, y, 100, 100);
+
+            // Posición: Arriba a la derecha
+            int x = getWidth() - 160;
+            int y = 30;
+            int tamaño = 100;
+
+            // Dibujamos el círculo
+            java.awt.geom.Ellipse2D.Double clip = new java.awt.geom.Ellipse2D.Double(x, y, tamaño, tamaño);
             g2.setClip(clip);
-            g2.drawImage(img, x, y, 100, 100, this);
+            g2.drawImage(imagenLogo, x, y, tamaño, tamaño, this);
             g2.setClip(null);
+
+            // Dibujamos el borde del círculo para que quede elegante
             g2.setColor(Color.BLACK);
+            g2.setStroke(new BasicStroke(2));
             g2.draw(clip);
+
             g2.dispose();
         }
     }
+
+
 
     private void configurarSaltoEnter() {
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
