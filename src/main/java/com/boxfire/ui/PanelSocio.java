@@ -15,6 +15,8 @@ public class PanelSocio extends JPanel {
     private JFormattedTextField txtFechaNac;
     private JComboBox<String> comboDescuento;
     private Image imagenLogo;
+    private JTextField txtCuenta;
+
 
 
     public PanelSocio() {
@@ -122,6 +124,23 @@ public class PanelSocio extends JPanel {
         gbcPrincipal.gridy = 1;
         add(card, gbcPrincipal);
 
+        // --- Nº DE CUENTA ---
+        gbc.gridy = 10; // Nueva fila debajo de F. Pago
+        gbc.gridx = 0;
+        JLabel lblCuenta = new JLabel("Nº de Cuenta:", SwingConstants.LEFT);
+        lblCuenta.setFont(labelFontGeneral);
+        card.add(lblCuenta, gbc);
+
+        txtCuenta = new JTextField();
+        txtCuenta.setBorder(bordeNegro);
+        txtCuenta.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        txtCuenta.setPreferredSize(new Dimension(194, alturaFija)); // Ancho largo como Nombre o Domicilio
+        configurarLimitadorCuenta(txtCuenta); // Limitador de 20 dígitos
+
+        gbc.gridx = 1;
+        card.add(txtCuenta, gbc);
+
+
         // 3. BOTÓN CONFIRMAR
         JButton btnConfirmar = new JButton("CONFIRMAR ALTA");
         btnConfirmar.setBackground(new Color(221, 216, 60));
@@ -165,7 +184,8 @@ public class PanelSocio extends JPanel {
                 }
             }
 
-            String sql = "INSERT INTO socios (nombre, dni, domicilio, fecha_nacimiento, telefono, email, tarifa, forma_pago, esta_activo, fecha_alta) VALUES (?,?,?,?,?,?,?,?,?,?)";
+            String sql = "INSERT INTO socios (nombre, dni, domicilio, fecha_nacimiento, telefono, email, tarifa, forma_pago, esta_activo, fecha_alta, num_cuenta) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+
 
             try (java.sql.Connection conn = com.boxfire.db.ConexionDB.conectar()) {
                 java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -181,6 +201,7 @@ public class PanelSocio extends JPanel {
                 pstmt.setString(8, comboPago.getSelectedItem().toString());
                 pstmt.setInt(9, 1);
                 pstmt.setString(10, java.time.LocalDate.now().toString());
+                pstmt.setString(11, txtCuenta.getText());
 
                 pstmt.executeUpdate();
                 JOptionPane.showMessageDialog(this, "✅ Socio guardado correctamente.");
@@ -256,6 +277,21 @@ public class PanelSocio extends JPanel {
             }
         });
     }
+
+    private void configurarLimitadorCuenta(JTextField campo) {
+        ((javax.swing.text.AbstractDocument) campo.getDocument()).setDocumentFilter(new javax.swing.text.DocumentFilter() {
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, javax.swing.text.AttributeSet attrs) throws javax.swing.text.BadLocationException {
+                String currentText = fb.getDocument().getText(0, fb.getDocument().getLength());
+                String nextText = currentText.substring(0, offset) + text + currentText.substring(offset + length);
+                // Solo permitimos números y máximo 20 caracteres
+                if (nextText.length() <= 20 && text.matches("\\d*")) {
+                    super.replace(fb, offset, length, text, attrs);
+                }
+            }
+        });
+    }
+
 
     @Override
     protected void paintComponent(Graphics g) {

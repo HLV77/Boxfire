@@ -66,6 +66,14 @@ public class ConexionDB {
             stmt.execute(sqlPagos);
             stmt.execute(sqlConfigTarifas);
 
+            // Añade esto debajo de stmt.execute(sqlConfigTarifas);
+            try {
+                stmt.execute("ALTER TABLE socios ADD COLUMN num_cuenta TEXT");
+            } catch (SQLException e) {
+                // Si ya existe la columna, no pasa nada, el programa sigue
+            }
+
+
             // Insertar tarifas por defecto solo si la tabla está vacía
             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM configuracion_tarifas");
             if (rs.next() && rs.getInt(1) == 0) {
