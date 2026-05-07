@@ -132,17 +132,25 @@ public class PanelListadoSocios extends JPanel {
 
 
         // 1. Creamos las listas de opciones
-        String[] precios = {"45", "50", "55", "60", "65", "70", "75", "80", "85", "90"};
         String[] opcionesPago = {"Efectivo/Tarjeta/Bizum", "Domiciliación"};
 
                 // 2. Creamos los componentes desplegables
-        JComboBox<String> comboTarifaTab = new JComboBox<>(precios);
-        JComboBox<String> comboPago = new JComboBox<>(opcionesPago);
+        // --- CONFIGURACIÓN DE DESPLEGABLES EN LA TABLA ---
 
-
-
+        // 1. Combo de Tarifas (Dinámico desde la BD)
+        JComboBox<String> comboTarifaTab = new JComboBox<>();
         comboTarifaTab.setBackground(Color.WHITE);
+        com.boxfire.db.ConexionDB.rellenarComboTarifas(comboTarifaTab);
+
+        // 2. Combo de Formas de Pago (Usamos la variable que ya existe o la creamos si no está)
+        opcionesPago = new String[]{"Efectivo/Tarjeta/Bizum", "Domiciliación"};
+        JComboBox<String> comboPago = new JComboBox<>(opcionesPago);
         comboPago.setBackground(Color.WHITE);
+
+        // 3. Asignar los editores a sus columnas correspondientes
+        tabla.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(comboTarifaTab));
+        tabla.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(comboPago));
+
 
         tabla.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(comboTarifaTab)); // Tarifa
         tabla.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(comboPago));       // F. Pago
@@ -284,7 +292,6 @@ public class PanelListadoSocios extends JPanel {
                 }
             }
         });
-
 
     }
 
@@ -457,5 +464,18 @@ public class PanelListadoSocios extends JPanel {
             JOptionPane.showMessageDialog(this, "Error al eliminar: " + ex.getMessage());
         }
     }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        // Cada vez que entramos en la pestaña de Listado, refrescamos los datos y el combo
+        cargarDatos();
+
+        // Actualizamos también el editor de la columna por si cambiaron las tarifas en Configuración
+        JComboBox<String> nuevoCombo = new JComboBox<>();
+        com.boxfire.db.ConexionDB.rellenarComboTarifas(nuevoCombo);
+        tabla.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(nuevoCombo));
+    }
+
 
 }
